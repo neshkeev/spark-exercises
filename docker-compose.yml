@@ -1,0 +1,52 @@
+version: "3.6"
+networks:
+  pyspark_network:
+services:
+  zookeeper:
+    image: 'bitnami/zookeeper:3.8'
+    hostname: zookeeper
+    networks:
+      - pyspark_network
+    ports:
+      - "2181:2181"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+  kafka:
+    image: 'bitnami/kafka:3.3.1'
+    hostname: kafka
+    networks:
+      - pyspark_network
+    ports:
+      - "9092:9092"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CLIENT_USERS=docker
+      - KAFKA_CLIENT_PASSWORDS=docker
+    depends_on:
+      - zookeeper
+  postgres:
+    image: 'postgres:11-alpine'
+    hostname: postgres
+    networks:
+      - pyspark_network
+    container_name: postgres
+    environment:
+      - "TZ=Europe/Amsterdam"
+      - "POSTGRES_USER=docker"
+      - "POSTGRES_PASSWORD=docker"
+    ports:
+      - "5432:5432"
+    volumes:
+      - "./postgres/sql:/docker-entrypoint-initdb.d"
+  pyspark:
+    image: jupyter/pyspark-notebook
+    hostname: pyspark
+    networks:
+      - pyspark_network
+    ports:
+      - 8888:8888
+      - 4040:4040
+      - 4041:4041
+    volumes:
+      - ./notebooks:/home/jovyan/notebooks
