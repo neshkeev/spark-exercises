@@ -1,0 +1,29 @@
+version: "3.6"
+networks:
+  pyspark_network:
+services:
+  postgres:
+    image: 'postgres:11-alpine'
+    hostname: postgres
+    networks:
+      - pyspark_network
+    container_name: postgres
+    environment:
+      - "TZ=Europe/Moscow"
+      - "POSTGRES_USER=docker"
+      - "POSTGRES_PASSWORD=docker"
+    ports:
+      - "5432:5432"
+    volumes:
+      - "./postgres/sql:/docker-entrypoint-initdb.d"
+  pyspark:
+    image: jupyter/pyspark-notebook
+    hostname: pyspark
+    networks:
+      - pyspark_network
+    ports:
+      - 8888:8888
+      - 4040:4040
+      - 4041:4041
+    volumes:
+      - ./notebooks:/home/jovyan/notebooks
