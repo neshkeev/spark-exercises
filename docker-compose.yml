@@ -13,3 +13,4 @@ services:
       - 4041:4041
     volumes:
       - ./notebooks:/home/jovyan/notebooks
+      - ./metrics.properties:/usr/local/spark-3.3.1-bin-hadoop3/conf/metrics.properties

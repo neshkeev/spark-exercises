@@ -15,3 +15,8 @@ Open the notebook:
 - Open the url in a web browser
 - Navigate to the file browser panel. Press `CTRL + SHIFT + F` if it's not visible
 - Double click on `notebooks/optimisation.ipynb`
+
+## Metrics
+
+Metrics are awailable at the [`http://127.0.0.1:4040/metrics/prometheus/`](http://127.0.0.1:4040/metrics/prometheus/)
+Please correct the IP address if you run Spark on a remote server.
