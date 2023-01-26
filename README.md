@@ -28,6 +28,10 @@ Open the notebook:
 1. Check if messages are in the topic: `kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic my-pyspark-topic --from-beginning`
 1. Exit the consumer: Press `CTRL + C`
 
+## Hadoop HDFS
+
+Go to `http://localhost:9870/explorer.html` in order to open Hadoop WebUI and explore HDFS.
+
 ## Troubleshooting
 
 ### The database is empty or the database's container doesn't start
@@ -39,3 +43,10 @@ Make sure you changed the permissions from the first step.
 1. Get the container id: `CONTAINER_ID=$(docker container ls -a | grep postgres | awk '{print $1}')`
 1. Remove the container by id: `[ -n "${CONTAINER_ID}" ] && docker rm ${CONTAINER_ID} || echo 'Nothing to remove'`
 1. Start the containers: `docker compose up` and proceed with the preparation instructions
+
+### 404 Not Found on Hadoop WebUI
+
+Hadoop doesn't expect to be run inside a container, so it resolves it's hostname to `hadoop`
+which prevents some links from following on Hadoop WebUI.
+If a HTTP request ends up with `404 Not Found`, replacing `hadoop` to `localhost` in the address bar of your web browser
+will most likely fix the problem.

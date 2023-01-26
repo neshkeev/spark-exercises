@@ -39,6 +39,18 @@ services:
       - "5432:5432"
     volumes:
       - "./postgres/sql:/docker-entrypoint-initdb.d"
+  hadoop:
+    image: neshkeev/hadoop
+    hostname: hadoop
+    networks:
+      - pyspark_network
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+      - "9864:9864"
+    volumes:
+      - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
   pyspark:
     image: jupyter/pyspark-notebook
     hostname: pyspark
