@@ -1,0 +1,13 @@
+ports:
+- port: 8888
+  onOpen: open-browser
+tasks:
+- name: Start Jupyter Notebook
+  command: bash ./start
+vscode:
+  extensions:
+    # Docker Containers
+    - ms-azuretools.vscode-docker
+    - ms-python.python
+    - ms-toolsai.jupyter
+
