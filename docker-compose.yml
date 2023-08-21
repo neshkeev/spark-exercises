@@ -1,0 +1,31 @@
+version: "3.8"
+
+x-check-ports: &check-ports ./bin/check-ports:/bin/check-ports
+x-service-template: &template
+  restart: on-failure
+  healthcheck: &hc
+    interval: 5s
+    timeout: 3s
+    start_period: 10s
+    retries: 10
+  volumes:
+    - *check-ports
+
+services:
+  pyspark:
+    <<: *template
+    image: jupyter/pyspark-notebook
+    hostname: &name pyspark
+    container_name: *name
+    healthcheck:
+      <<: *hc
+      test: sh /bin/check-ports 8888
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+      - "4041:4041"
+    volumes:
+      - *check-ports
+      - ./work/work.ipynb:/home/jovyan/work/work.ipynb
+    environment:
+      NOTEBOOK_ARGS: --NotebookApp.token='' --NotebookApp.password=''

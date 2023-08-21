@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+next_branch=${1:-$(awk '{print $1}' <./next_branch)}
+
+function tree_clean() {
+    git diff --quiet
+}
+
+function index_clean() {
+    git diff --cached --quiet
+}
+
+tree_clean || { git commit -am "Save changes" ; } &&
+    index_clean || { git commit -am "Save changes" ; } &&
+    docker compose stop &&
+    docker compose rm -f &&
+    git checkout "${next_branch}"

@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+function info() {
+    echo "$@"
+}
+
+function error() {
+    echo "$@" >&2
+    return 1
+}
+
+function check_port() {
+    local port_hex=$(printf "%04x" ${1})
+
+    cat /proc/net/tcp \
+        /proc/net/tcp6 \
+        /proc/net/udp \
+        /proc/net/udp6 |
+    awk '!/local_address/{
+        split($2,port,":");
+        print port[2]
+    }' | grep -i -q "^${port_hex}$"
+}
+
+ok=0
+for port in ${*}; do
+    check_port "$port" || {
+        error "No ${port} port open"
+    }
+    ok=$((ok + $?))
+done
+
+[ "$ok" == "0" ]
