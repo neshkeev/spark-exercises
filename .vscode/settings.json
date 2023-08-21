@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "/usr/local/spark/python"
+    ]
+}
