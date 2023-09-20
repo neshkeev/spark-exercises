@@ -519,4 +519,7 @@ tags
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/java,scala,python,spark,intellij,visualstudiocode,vim,jupyternotebooks,pycharm+all
-
+**/*.drawio.bkp
+**/*.drawio.dtmp
+!work/data/taxi.zip
+!work/data/steam.zip
