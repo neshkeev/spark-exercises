@@ -29,5 +29,6 @@ services:
       - ./imgs:/home/jovyan/imgs
       - ./work/work.ipynb:/home/jovyan/work/work.ipynb
       - ./work/data/taxi.zip:/home/jovyan/work/data/taxi.zip
+      - ./work/data/steam.zip:/home/jovyan/work/data/steam.zip
     environment:
       NOTEBOOK_ARGS: --NotebookApp.token='' --NotebookApp.password=''
