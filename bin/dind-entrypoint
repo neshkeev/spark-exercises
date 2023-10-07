@@ -10,8 +10,6 @@ function setup_cwd() {
     echo "${CURRENT_DIR_NAME}" > /tmp/cwd
 }
 
-trap 'rc-service sshd stop' EXIT
-
 setup_cwd &&
     setup_ssh &&
     rc-status &&

@@ -1,0 +1,36 @@
+#! /usr/bin/env bash
+
+function docker() {
+    ssh -o ConnectTimeout=10 root@"$DIND_HOST" -p 2222 -i ~/.ssh/id_rsa_dind "cd /root/\$(cat /tmp/cwd); /usr/local/bin/docker $@"
+}
+
+function hdfs() {
+    docker compose exec -T "${NAMENODE_HOST}" "su -l hdfs -c \"hdfs $@\""
+}
+
+function setup_hdfs() {
+    [ -f "${SPARK_HOME}/conf/spark-defaults.conf" ] || {
+        echo "${SPARK_HOME}/conf/spark-defaults.conf Not Found. Abort" >&2
+        return 1
+    }
+
+    local log_dir=$(sed -n '/spark.history.fs.logDirectory/s,.*}:[0-9]\+/\(.*\),/\1,p' "${SPARK_HOME}"/conf/spark-defaults.conf)
+
+    hdfs dfs -mkdir -p "${log_dir}"
+}
+
+function setup_ssh() {
+    mkdir ~/.ssh
+
+    ssh-keyscan -p 2222 ${DIND_HOST} > ~/.ssh/known_hosts
+
+    printf 'Host *\n\tSetEnv LC_ALL=C' > ~/.ssh/config
+
+    echo -n "$PRIVATE_KEY" > ~/.ssh/id_rsa_dind
+    chmod 600 ~/.ssh/id_rsa_dind
+}
+
+setup_ssh &&
+    setup_hdfs &&
+    /usr/local/spark/sbin/start-history-server.sh &&
+    tail -f /tmp/spark-logs/spark--org.apache.spark.deploy.history.HistoryServer-*.out

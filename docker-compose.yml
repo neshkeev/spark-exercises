@@ -39,6 +39,8 @@ services:
     depends_on:
       dind:
         condition: service_healthy
+      hadoop:
+        condition: service_healthy
     ports:
       - "8888:8888"
       - "4040:4040"
@@ -46,6 +48,7 @@ services:
       - *check-ports
       - ./work/work.ipynb:/home/jovyan/work/work.ipynb
       - ./conf:/tmp/hadoop/conf
+      - ./conf/spark-defaults.conf:/usr/local/spark/conf/spark-defaults.conf
       - ./bin/pyspark-entrypoint:/usr/local/bin/entrypoint
       - ./bin/pyspark.bash_aliases:/home/jovyan/.bash_aliases
     environment:
@@ -57,8 +60,69 @@ services:
       DIND_HOST: dind
       NAMENODE_HOST: hadoop
       RESOURCEMANAGER_HOST: hadoop
-      HADOOP_DATANODE_HOST: ${DATANODE_HOST:-localhost}
-      HADOOP_NODEMANAGER_HOST: ${NODEMANAGER_HOST:-localhost}
+
+  nginx:
+    <<: *template
+    image: nginx
+    hostname: &name nginx
+    container_name: *name
+    healthcheck:
+      <<: *hc
+      test: bash /bin/check-ports 8080
+    depends_on:
+      historyserver1:
+        condition: service_healthy
+      historyserver2:
+        condition: service_healthy
+      historyserver3:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - *check-ports
+      - ./conf/nginx.conf:/etc/nginx/nginx.conf
+
+  historyserver1: &historyserver
+    <<: *template
+    image: jupyter/pyspark-notebook
+    hostname: &name historyserver1
+    container_name: *name
+    command: /bin/entrypoint
+    healthcheck:
+      <<: *hc
+      test: bash /bin/check-ports 18080
+    ports:
+      - "18080:18080"
+    volumes:
+      - *check-ports
+      - ./conf:/tmp/hadoop/conf
+      - ./conf/spark-defaults.conf:/usr/local/spark/conf/spark-defaults.conf
+      - ./bin/historyserver-entrypoint:/bin/entrypoint
+    depends_on:
+      hadoop:
+        condition: service_healthy
+      dind:
+        condition: service_healthy
+    environment:
+      NOTEBOOK_ARGS: --NotebookApp.token='' --NotebookApp.password=''
+      SPARK_LOG_DIR: /tmp/spark-logs
+      NAMENODE_HOST: hadoop
+      DIND_HOST: dind
+      PRIVATE_KEY: *private
+
+  historyserver2:
+    <<: *historyserver
+    hostname: &name historyserver2
+    container_name: *name
+    ports:
+      - "28080:18080"
+
+  historyserver3:
+    <<: *historyserver
+    hostname: &name historyserver3
+    container_name: *name
+    ports:
+      - "38080:18080"
 
   hadoop:
     <<: *template
