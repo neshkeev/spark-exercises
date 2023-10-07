@@ -1,0 +1,27 @@
+# config file version
+apiVersion: 1
+
+# list of datasources that should be deleted from the database
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
+datasources:
+- name: Prometheus
+  type: prometheus
+  access: proxy
+  url: http://prometheus:9090
+  basicAuth: false
+  isDefault: true
+  jsonData:
+     timeInterval: 60s
+     tlsAuth: false
+     tlsAuthWithCACert: false
+  version: 1
+  editable: true
+- name: Loki
+  type: loki
+  access: proxy
+  url: http://loki:3100
+  jsonData:
+    maxLines: 1000

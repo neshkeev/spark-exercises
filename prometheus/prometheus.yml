@@ -1,0 +1,53 @@
+global:
+  # How frequently to scrape targets by default.
+  # Default 15s
+  scrape_interval: 10s
+  # How frequently to evaluate rules.
+  # Default 15s
+  evaluation_interval: 10s
+  # How long until a scrape request times out.
+  # Default to 10s.
+  scrape_timeout: 5s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "pushgateway"
+    metrics_path: /metrics
+    static_configs:
+      - targets: [ "pushgateway:9091" ]
+
+  # SPARK
+  - job_name: "driver"
+    metrics_path: /metrics/prometheus
+    static_configs:
+      - targets: [ "pyspark:4040" ]
+        
+  - job_name: "executors"
+    metrics_path: /metrics/executors/prometheus
+    static_configs:
+      - targets: [ "pyspark:4040" ]
+        
+  # HADOOP
+  - job_name: "namenode"
+    metrics_path: /prom
+    static_configs:
+      - targets: [ "hadoop:9870" ]
+
+  - job_name: "resourcemanager"
+    metrics_path: /prom
+    static_configs:
+      - targets: [ "hadoop:8088" ]
+
+  - job_name: "datanode"
+    metrics_path: /prom
+    static_configs:
+      - targets: [ "hadoop:9864" ]
+
+  - job_name: "nodemanager"
+    metrics_path: /prom
+    static_configs:
+      - targets: [ "hadoop:8042" ]
+

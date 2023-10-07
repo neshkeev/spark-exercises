@@ -13,6 +13,8 @@ x-service-template: &template
     timeout: 3s
     start_period: 10s
     retries: 20
+  volumes:
+    - *check-ports
 
 x-public-key: &pub >
   ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILArDnLYVp+/JkcrJKHX5XDpFj2MdA6NmV09vh7DmVrD spark-exercises
@@ -39,15 +41,31 @@ services:
     depends_on:
       dind:
         condition: service_healthy
+      collector:
+        condition: service_started
+      pushgateway:
+        condition: service_healthy
     ports:
       - "8888:8888"
       - "4040:4040"
+      - "5555:5555"
     volumes:
       - *check-ports
+      # Notebook
       - ./work/work.ipynb:/home/jovyan/work/work.ipynb
-      - ./conf:/tmp/hadoop/conf
+      # Hadoop Configs
+      - ./conf/hadoop:/tmp/hadoop/conf
+      # Spark Custom Configs
+      - ./conf/spark/override/spark-defaults-otel-javaagent.conf:/tmp/spark/spark-defaults.conf
+      - ./conf/spark/override/log4j2-warn.properties:/tmp/spark/log4j2-warn.properties
+      - ./conf/spark/override/metrics-prometheus-servlet.properties:/tmp/spark/metrics-prometheus-servlet.properties
+      - ./conf/spark/override/metrics-prometheus-pushgateway.properties:/tmp/spark/metrics-prometheus-pushgateway.properties
+      # Entrypoint
       - ./bin/pyspark-entrypoint:/usr/local/bin/entrypoint
+      # Environment
       - ./bin/pyspark.bash_aliases:/home/jovyan/.bash_aliases
+      # Prometheus Push Gateway Sink
+      - ./jars/spark-metrics-assembly-3.2-1.0.0.jar:/usr/local/spark/jars/spark-metrics-assembly-3.2-1.0.0.jar
     environment:
       NOTEBOOK_ARGS: --NotebookApp.token='' --NotebookApp.password=''
       HADOOP_CONF_DIR: /tmp/hadoop/conf
@@ -57,8 +75,7 @@ services:
       DIND_HOST: dind
       NAMENODE_HOST: hadoop
       RESOURCEMANAGER_HOST: hadoop
-      HADOOP_DATANODE_HOST: ${DATANODE_HOST:-localhost}
-      HADOOP_NODEMANAGER_HOST: ${NODEMANAGER_HOST:-localhost}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://collector:4317
 
   hadoop:
     <<: *template
@@ -74,10 +91,10 @@ services:
       - "9870:9870"
       - "9864:9864"
     volumes:
-      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
-      - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
-      - ./conf/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml
-      - ./conf/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml
+      - ./conf/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+      - ./conf/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+      - ./conf/hadoop/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml
+      - ./conf/hadoop/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml
       - ./bin/propagate-envs:/usr/bin/before_start
     environment:
       HADOOP_DATANODE_HOST: ${DATANODE_HOST:-localhost}
@@ -96,8 +113,78 @@ services:
     privileged: true
     volumes:
       - *check-ports
-      - ./docker-compose.yml:/root/${CURRENT_DIR_NAME:-spark-exercises}/docker-compose.yml
+      - .:/root/${CURRENT_DIR_NAME:-spark-exercises}
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       CURRENT_DIR_NAME: ${CURRENT_DIR_NAME:-spark-exercises}
       AUTHORIZED_KEYS: *pub
+
+  prometheus:
+    <<: *template
+    image: prom/prometheus
+    hostname: &name prometheus
+    container_name: *name
+    ports:
+      - "9090:9090"
+    healthcheck:
+      <<: *hc
+      test: sh /bin/check-ports 9090
+    volumes:
+      - *check-ports
+      - ./prometheus:/etc/prometheus
+
+  pushgateway:
+    <<: *template
+    image: prom/pushgateway
+    hostname: &name pushgateway
+    container_name: *name
+    ports:
+      - "9091:9091"
+    healthcheck:
+      <<: *hc
+      test: sh /bin/check-ports 9091
+
+  grafana:
+    <<: *template
+    image: grafana/grafana
+    hostname: &name grafana
+    container_name: *name
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 3000
+    volumes:
+      - *check-ports
+      - ./grafana/provisioning/:/etc/grafana/provisioning
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: true
+
+  loki:
+    <<: *template
+    image: grafana/loki:latest
+    hostname: &name loki
+    container_name: *name
+    ports:
+      - "3100:3100"
+    healthcheck:
+      <<: *hc
+      test: sh /bin/check-ports 3100
+
+  collector:
+    <<: *template
+    image: otel/opentelemetry-collector-contrib:0.87.0
+    hostname: &name collector
+    container_name: *name
+    depends_on:
+      loki:
+        condition: service_healthy
+    volumes:
+      - *check-ports
+      - ./conf/otel/config.yaml:/etc/otelcol-contrib/config.yaml
