@@ -14,4 +14,14 @@
 		<value>JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_HOME,PATH,LANG,TZ,HADOOP_MAPRED_HOME</value>
 	</property>
 
+    <!-- Resouce Allocation -->
+    <property>
+        <name>yarn.scheduler.minimum-allocation-mb</name>
+        <value>1024<!-- yarn.scheduler.minimum-allocation-mb.value --></value>
+    </property>
+
+    <property>
+        <name>yarn.scheduler.maximum-allocation-mb</name>
+        <value>3072<!-- yarn.scheduler.maximum-allocation-mb.value --></value>
+    </property>
 </configuration>

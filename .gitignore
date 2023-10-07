@@ -519,3 +519,4 @@ tags
 
 # End of https://www.toptal.com/developers/gitignore/api/java,scala,python,spark,intellij,visualstudiocode,vim,jupyternotebooks,pycharm+all
 
+**/config/bkp_yarn-site.xml
