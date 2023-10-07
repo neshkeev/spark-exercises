@@ -1,7 +1,13 @@
 #! /usr/bin/env bash
 
+export CURRENT_DIR_NAME=${PWD##*/}
+
+export DATANODE_HOST="${1:-$(hostname -i 2>/dev/null || hostname)}"
+export NODEMANAGER_HOST="${2:-${DATANODE_HOST}}"
+
 chmod -R +x ./bin
 chmod -R 777 ./work
+chmod -R 777 ./conf
 
 MSYS_NO_PATHCONV=1 docker compose stop &&
   docker compose rm -f &&

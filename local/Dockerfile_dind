@@ -1,0 +1,21 @@
+FROM docker:stable-dind
+
+COPY --from=docker/compose-bin:edge /docker-compose /usr/libexec/docker/cli-plugins/docker-compose
+
+COPY bin/dind-entrypoint /bin/entrypoint
+
+RUN apk add openrc openssh && \
+    chmod 777 /bin/entrypoint && \
+    sed -i -e 's/^root:!:/root::/' /etc/shadow && \
+    ssh-keygen -A && \
+    echo "PasswordAuthentication no" >> /etc/ssh/sshd_config && \
+    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
+    echo "Port 2222" >> /etc/ssh/sshd_config && \
+    mkdir -p /run/openrc && \
+    # touch softlevel because system was initialized without openrc
+    touch /run/openrc/softlevel && \
+    true
+
+WORKDIR /root/git-intro
+
+CMD [ "/bin/entrypoint" ]

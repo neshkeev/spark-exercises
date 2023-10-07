@@ -1,0 +1,3 @@
+#! /usr/bin/env sh
+env | sed -n '/^HADOOP_/s,HADOOP_\(.*\),export \1,p' >> /home/hdfs/.bashrc
+env | sed -n '/^HADOOP_/s,HADOOP_\(.*\),export \1,p' >> /home/yarn/.bashrc

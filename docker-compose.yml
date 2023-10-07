@@ -1,15 +1,30 @@
 version: "3.8"
+networks:
+  spark_network:
 
 x-check-ports: &check-ports ./bin/check-ports:/bin/check-ports
+
 x-service-template: &template
   restart: on-failure
+  networks:
+    - spark_network
   healthcheck: &hc
     interval: 5s
     timeout: 3s
     start_period: 10s
-    retries: 10
-  volumes:
-    - *check-ports
+    retries: 20
+
+x-public-key: &pub >
+  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILArDnLYVp+/JkcrJKHX5XDpFj2MdA6NmV09vh7DmVrD spark-exercises
+
+x-private-key: &private |+
+  -----BEGIN OPENSSH PRIVATE KEY-----
+  b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+  QyNTUxOQAAACCwKw5y2FafvyZHKySh1+Vw6RY9jHQOjZldPb4ew5lawwAAAJggO3ZdIDt2
+  XQAAAAtzc2gtZWQyNTUxOQAAACCwKw5y2FafvyZHKySh1+Vw6RY9jHQOjZldPb4ew5laww
+  AAAEA6oPfTO+faTshF1LXPJNKihyWNqL5QQejwBnFQ8UK4o7ArDnLYVp+/JkcrJKHX5XDp
+  Fj2MdA6NmV09vh7DmVrDAAAAD3NwYXJrLWV4ZXJjaXNlcwECAwQFBg==
+  -----END OPENSSH PRIVATE KEY-----
 
 services:
   pyspark:
@@ -17,15 +32,72 @@ services:
     image: jupyter/pyspark-notebook
     hostname: &name pyspark
     container_name: *name
+    command: /usr/local/bin/entrypoint
     healthcheck:
       <<: *hc
-      test: sh /bin/check-ports 8888
+      test: bash /bin/check-ports 8888
+    depends_on:
+      dind:
+        condition: service_healthy
     ports:
       - "8888:8888"
       - "4040:4040"
-      - "4041:4041"
     volumes:
       - *check-ports
       - ./work/work.ipynb:/home/jovyan/work/work.ipynb
+      - ./conf:/tmp/hadoop/conf
+      - ./bin/pyspark-entrypoint:/usr/local/bin/entrypoint
+      - ./bin/pyspark.bash_aliases:/home/jovyan/.bash_aliases
     environment:
       NOTEBOOK_ARGS: --NotebookApp.token='' --NotebookApp.password=''
+      HADOOP_CONF_DIR: /tmp/hadoop/conf
+      YARN_CONF_DIR: /tmp/hadoop/conf
+      SPARK_LOG_DIR: /tmp/spark-logs
+      PRIVATE_KEY: *private
+      DIND_HOST: dind
+      NAMENODE_HOST: hadoop
+      RESOURCEMANAGER_HOST: hadoop
+      HADOOP_DATANODE_HOST: ${DATANODE_HOST:-localhost}
+      HADOOP_NODEMANAGER_HOST: ${NODEMANAGER_HOST:-localhost}
+
+  hadoop:
+    <<: *template
+    image: neshkeev/hadoop
+    hostname: &name hadoop
+    container_name: *name
+    healthcheck:
+      <<: *hc
+      test: bash /bin/check-ports 8042 8088 9000 9870 9864
+    ports:
+      - "8042:8042"
+      - "8088:8088"
+      - "9870:9870"
+      - "9864:9864"
+    volumes:
+      - ./conf/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml
+      - ./conf/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml
+      - ./conf/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml
+      - ./conf/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml
+      - ./bin/propagate-envs:/usr/bin/before_start
+    environment:
+      HADOOP_DATANODE_HOST: ${DATANODE_HOST:-localhost}
+      HADOOP_NODEMANAGER_HOST: ${NODEMANAGER_HOST:-localhost}
+
+  dind:
+    <<: *template
+    build:
+      context: .
+      dockerfile: local/Dockerfile_dind
+    hostname: &name dind
+    container_name: *name
+    healthcheck:
+      <<: *hc
+      test: sh /bin/check-ports 2222
+    privileged: true
+    volumes:
+      - *check-ports
+      - ./docker-compose.yml:/root/${CURRENT_DIR_NAME:-spark-exercises}/docker-compose.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      CURRENT_DIR_NAME: ${CURRENT_DIR_NAME:-spark-exercises}
+      AUTHORIZED_KEYS: *pub
