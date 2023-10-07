@@ -39,9 +39,10 @@ services:
     depends_on:
       dind:
         condition: service_healthy
+      connect:
+        condition: service_healthy
     ports:
       - "8888:8888"
-      - "4040:4040"
     volumes:
       - *check-ports
       - ./work/work.ipynb:/home/jovyan/work/work.ipynb
@@ -57,8 +58,32 @@ services:
       DIND_HOST: dind
       NAMENODE_HOST: hadoop
       RESOURCEMANAGER_HOST: hadoop
-      HADOOP_DATANODE_HOST: ${DATANODE_HOST:-localhost}
-      HADOOP_NODEMANAGER_HOST: ${NODEMANAGER_HOST:-localhost}
+
+  connect:
+    <<: *template
+    image: jupyter/pyspark-notebook
+    hostname: &name connect
+    container_name: *name
+    command: /usr/local/bin/entrypoint
+    healthcheck:
+      <<: *hc
+      test: bash /bin/check-ports 15002
+    depends_on:
+      hadoop:
+        condition: service_healthy
+    ports:
+      - "4040:4040"
+      - "4041:4041"
+    volumes:
+      - *check-ports
+      - ./bin/spark-connect-entrypoint:/usr/local/bin/entrypoint
+      - ./conf:/tmp/hadoop/conf
+      - ./conf/spark-connect.conf:/usr/local/spark/conf/spark-defaults.conf
+    environment:
+      HADOOP_CONF_DIR: /tmp/hadoop/conf
+      YARN_CONF_DIR: /tmp/hadoop/conf
+      NAMENODE_HOST: hadoop
+      SPARK_LOG_DIR: /tmp/spark-logs
 
   hadoop:
     <<: *template

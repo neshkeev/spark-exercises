@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+function start_spark_connect() {
+    $SPARK_HOME/sbin/start-connect-server.sh --packages org.apache.spark:spark-connect_2.12:3.5.0 --master yarn
+}
+
+function poll_logs() {
+    tail -f /tmp/spark-logs/spark--org.apache.spark.sql.connect.service.SparkConnectServer-*.out
+}
+
+function at_exit() {
+    $SPARK_HOME/sbin/stop-connect-server.sh
+}
+
+trap at_exit EXIT
+
+start_spark_connect &&
+    poll_logs
