@@ -422,6 +422,7 @@ conf/*.cmd
 conf/*.sh
 conf/java-opts
 conf/slaves
+conf/bkp_yarn-site.xml
 dependency-reduced-pom.xml
 derby.log
 dev/create-release/*final
