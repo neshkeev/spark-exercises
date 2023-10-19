@@ -57,8 +57,6 @@ services:
       DIND_HOST: dind
       NAMENODE_HOST: hadoop
       RESOURCEMANAGER_HOST: hadoop
-      HADOOP_DATANODE_HOST: ${DATANODE_HOST:-localhost}
-      HADOOP_NODEMANAGER_HOST: ${NODEMANAGER_HOST:-localhost}
 
   hadoop:
     <<: *template
