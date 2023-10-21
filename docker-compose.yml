@@ -173,3 +173,56 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+
+  hive:
+    <<: *template
+    image: apachehudi/hudi-hadoop_3.1.0-hive_3.1.2-sparkworker_3.2.1
+    container_name: &name hive
+    hostname: *name
+    entrypoint: bash /bin/entrypoint
+    depends_on:
+      hadoop:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 9083
+    volumes:
+      - *check-ports
+      - ./bin/hive-entrypoint:/bin/entrypoint
+    environment:
+      CORE_CONF_fs_defaultFS: hdfs://hadoop:9000
+
+  presto:
+    <<: *template
+    image: ahanaio/prestodb-sandbox
+    container_name: &name presto
+    hostname: *name
+    depends_on:
+      hive:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: bash /bin/check-ports 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - *check-ports
+      - ./conf/presto.properties:/opt/presto-server/etc/catalog/delta.properties
+      - ./conf/presto-authenticator.properties:/opt/presto-server/etc/password-authenticator.properties
+      - ./conf/presto-passwords.conf:/tmp/passwords
+
+  superset:
+    <<: *template
+    image: apachesuperset.docker.scarf.sh/apache/superset
+    container_name: &name superset
+    hostname: *name
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: bash /bin/check-ports 8088
+    ports:
+      - "18088:8088"
+    profiles: [ "superset" ]
+    env_file: conf/superset.env
