@@ -43,6 +43,12 @@ services:
     depends_on:
       dind:
         condition: service_healthy
+      hadoop:
+        condition: service_healthy
+      hive:
+        condition: service_healthy
+      superset:
+        condition: service_healthy
     ports:
       - "8888:8888"
       - "4040:4040"
@@ -88,6 +94,24 @@ services:
       HADOOP_DATANODE_HOST: ${DATANODE_HOST:-localhost}
       HADOOP_NODEMANAGER_HOST: ${NODEMANAGER_HOST:-localhost}
 
+  hive:
+    <<: *template
+    image: apachehudi/hudi-hadoop_3.1.0-hive_3.1.2-sparkworker_3.2.1
+    container_name: &name hive
+    hostname: *name
+    entrypoint: bash /bin/entrypoint
+    depends_on:
+      hadoop:
+        condition: service_healthy
+    healthcheck:
+      <<: *hc
+      test: /bin/check-ports 9083
+    volumes:
+      - *check-ports
+      - ./bin/hive-entrypoint:/bin/entrypoint
+    environment:
+      CORE_CONF_fs_defaultFS: hdfs://hadoop:9000
+
   dind:
     <<: *template
     build:
@@ -108,55 +132,6 @@ services:
       CURRENT_DIR_NAME: ${CURRENT_DIR_NAME:-spark-exercises}
       AUTHORIZED_KEYS: *pub
 
-  kafka:
-    <<: *template
-    image: confluentinc/cp-kafka:7.4.0
-    hostname: &name kafka
-    container_name: *name
-    healthcheck:
-      <<: *hc
-      test: /bin/check-ports 9092 19092
-    profiles: [ "kafka" ]
-    environment: &controller_env
-      CLUSTER_ID: JS-9P8KdQGG_lCVXikxM5w
-      KAFKA_NODE_ID: 1
-
-      KAFKA_PROCESS_ROLES: >
-        controller,
-        broker
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:19092
-
-      KAFKA_LISTENERS: &listeners BROKER://kafka:9092, CONTROLLER://kafka:19092
-      KAFKA_ADVERTISED_LISTENERS: BROKER://kafka:9092
-      KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >
-        BROKER:PLAINTEXT,
-        CONTROLLER:PLAINTEXT
-
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-
-      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
-
-  redpanda:
-    <<: *template
-    image: docker.redpanda.com/redpandadata/console:v2.2.4
-    hostname: &name redpanda
-    container_name: *name
-    depends_on:
-      kafka:
-        condition: service_healthy
-    ports:
-      - "8080:8080"
-    healthcheck:
-      <<: *hc
-      test: sh /bin/check-ports 8080
-    profiles: [ "kafka" ]
-    environment:
-      KAFKA_BROKERS: kafka:9092
-
   postgres:
     <<: *template
     image: postgres:14.1
@@ -168,34 +143,32 @@ services:
     volumes:
       - *check-ports
       - ./db:/docker-entrypoint-initdb.d/
-    profiles: [ "db" ]
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
 
-  hive:
+  superset:
     <<: *template
-    image: apachehudi/hudi-hadoop_3.1.0-hive_3.1.2-sparkworker_3.2.1
-    container_name: &name hive
+    image: apachesuperset.docker.scarf.sh/apache/superset
+    container_name: &name superset
     hostname: *name
-    entrypoint: bash /bin/entrypoint
     depends_on:
-      hadoop:
+      postgres:
+        condition: service_healthy
+      trino:
         condition: service_healthy
     healthcheck:
       <<: *hc
-      test: /bin/check-ports 9083
-    volumes:
-      - *check-ports
-      - ./bin/hive-entrypoint:/bin/entrypoint
-    environment:
-      CORE_CONF_fs_defaultFS: hdfs://hadoop:9000
+      test: bash /bin/check-ports 8088
+    ports:
+      - "18088:8088"
+    env_file: conf/superset.env
 
-  presto:
+  trino:
     <<: *template
-    image: ahanaio/prestodb-sandbox
-    container_name: &name presto
+    image: trinodb/trino
+    container_name: &name trino
     hostname: *name
     depends_on:
       hive:
@@ -207,22 +180,4 @@ services:
       - "8080:8080"
     volumes:
       - *check-ports
-      - ./conf/presto.properties:/opt/presto-server/etc/catalog/delta.properties
-      - ./conf/presto-authenticator.properties:/opt/presto-server/etc/password-authenticator.properties
-      - ./conf/presto-passwords.conf:/tmp/passwords
-
-  superset:
-    <<: *template
-    image: apachesuperset.docker.scarf.sh/apache/superset
-    container_name: &name superset
-    hostname: *name
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      <<: *hc
-      test: bash /bin/check-ports 8088
-    ports:
-      - "18088:8088"
-    profiles: [ "superset" ]
-    env_file: conf/superset.env
+      - ./conf/trino_delta.properties:/etc/trino/catalog/delta_lake.properties

@@ -16,6 +16,6 @@ RUN apk add openrc openssh && \
     touch /run/openrc/softlevel && \
     true
 
-WORKDIR /root/git-intro
+WORKDIR /root/spark-exercises
 
 CMD [ "/bin/entrypoint" ]
