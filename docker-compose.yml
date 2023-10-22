@@ -47,14 +47,13 @@ services:
         condition: service_healthy
       hive:
         condition: service_healthy
-      superset:
-        condition: service_healthy
     ports:
       - "8888:8888"
       - "4040:4040"
     volumes:
       - *check-ports
       - *highlight
+      - ./imgs:/home/jovyan/imgs
       - ./work/data:/home/jovyan/work/data
       - ./work/work.ipynb:/home/jovyan/work/work.ipynb
       - ./conf:/tmp/hadoop/conf
