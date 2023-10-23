@@ -33,7 +33,9 @@ x-private-key: &private |+
 services:
   pyspark:
     <<: *template
-    image: jupyter/pyspark-notebook:spark-3.5.0
+      # CatBoost doesn't work with Apache Spark 3.5.0 yet
+      # image: jupyter/pyspark-notebook:spark-3.5.0
+    image: jupyter/pyspark-notebook:spark-3.4.1
     hostname: &name pyspark
     container_name: *name
     command: /usr/local/bin/entrypoint
