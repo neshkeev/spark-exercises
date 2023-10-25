@@ -1,15 +1,34 @@
 version: "3.8"
+networks:
+  spark_network:
 
 x-check-ports: &check-ports ./bin/check-ports:/bin/check-ports
+
 x-service-template: &template
   restart: on-failure
+  extra_hosts:
+    host.docker.internal: host-gateway
+  networks:
+    - spark_network
   healthcheck: &hc
     interval: 5s
     timeout: 3s
     start_period: 10s
-    retries: 10
+    retries: 20
   volumes:
     - *check-ports
+
+x-public-key: &pub >
+  ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILArDnLYVp+/JkcrJKHX5XDpFj2MdA6NmV09vh7DmVrD spark-exercises
+
+x-private-key: &private |+
+  -----BEGIN OPENSSH PRIVATE KEY-----
+  b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+  QyNTUxOQAAACCwKw5y2FafvyZHKySh1+Vw6RY9jHQOjZldPb4ew5lawwAAAJggO3ZdIDt2
+  XQAAAAtzc2gtZWQyNTUxOQAAACCwKw5y2FafvyZHKySh1+Vw6RY9jHQOjZldPb4ew5laww
+  AAAEA6oPfTO+faTshF1LXPJNKihyWNqL5QQejwBnFQ8UK4o7ArDnLYVp+/JkcrJKHX5XDp
+  Fj2MdA6NmV09vh7DmVrDAAAAD3NwYXJrLWV4ZXJjaXNlcwECAwQFBg==
+  -----END OPENSSH PRIVATE KEY-----
 
 services:
   pyspark:
@@ -17,15 +36,92 @@ services:
     image: jupyter/pyspark-notebook
     hostname: &name pyspark
     container_name: *name
+    command: /usr/local/bin/entrypoint
     healthcheck:
       <<: *hc
-      test: sh /bin/check-ports 8888
+      test: bash /bin/check-ports 8888
+    depends_on:
+      dind:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     ports:
       - "8888:8888"
       - "4040:4040"
-      - "4041:4041"
     volumes:
       - *check-ports
+      - ./bin/pyspark-entrypoint:/usr/local/bin/entrypoint
+      - ./bin/pyspark.bash_aliases:/home/jovyan/.bash_aliases
+      - ./bin/hl:/bin/hl
       - ./work/work.ipynb:/home/jovyan/work/work.ipynb
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       NOTEBOOK_ARGS: --NotebookApp.token='' --NotebookApp.password=''
+      PRIVATE_KEY: *private
+      DIND_HOST: dind
+
+  dind:
+    <<: *template
+    build:
+      context: .
+      dockerfile: local/Dockerfile_dind
+    hostname: &name dind
+    container_name: *name
+    healthcheck:
+      <<: *hc
+      test: sh /bin/check-ports 2222
+    privileged: true
+    volumes:
+      - *check-ports
+      - .:/root/${CURRENT_DIR_NAME:-spark-exercises}
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      CURRENT_DIR_NAME: ${CURRENT_DIR_NAME:-spark-exercises}
+      AUTHORIZED_KEYS: *pub
+
+  kafka:
+    <<: *template
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: &name kafka
+    container_name: *name
+    healthcheck:
+      <<: *hc
+      test: bash /bin/check-ports 9092 19092
+    environment:
+      CLUSTER_ID: JS-9P8KdQGG_lCVXikxM5w
+      KAFKA_NODE_ID: 1
+
+      KAFKA_PROCESS_ROLES: >
+        controller,
+        broker
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:19092
+
+      KAFKA_LISTENERS: &listeners BROKER://kafka:9092, CONTROLLER://kafka:19092
+      KAFKA_ADVERTISED_LISTENERS: BROKER://kafka:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >
+        BROKER:PLAINTEXT,
+        CONTROLLER:PLAINTEXT
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+
+  redpanda:
+    <<: *template
+    image: docker.redpanda.com/redpandadata/console:v2.2.4
+    hostname: &name redpanda
+    container_name: *name
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    healthcheck:
+      <<: *hc
+      test: sh /bin/check-ports 8080
+    environment:
+      KAFKA_BROKERS: kafka:9092

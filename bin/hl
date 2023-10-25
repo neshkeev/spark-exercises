@@ -1,0 +1,19 @@
+#! /usr/bin/env bash
+
+REGEX="${1}"
+
+function no_highlight() {
+    cat -
+}
+
+function highlight() {
+    local regex="${1}"
+
+    while IFS=; read line; do
+        grep --color "${regex}" <<<"${line}" || echo "${line}"
+    done
+}
+
+[ -n "${REGEX}" ] && \
+    highlight "${REGEX}" || \
+    no_highlight

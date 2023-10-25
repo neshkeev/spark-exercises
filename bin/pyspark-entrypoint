@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+function setup_ssh() {
+    mkdir ~/.ssh
+
+    ssh-keyscan -p 2222 ${DIND_HOST} > ~/.ssh/known_hosts
+
+    printf 'Host *\n\tSetEnv LC_ALL=C' > ~/.ssh/config
+
+    echo -n "$PRIVATE_KEY" > ~/.ssh/id_rsa_dind
+    chmod 600 ~/.ssh/id_rsa_dind
+}
+
+setup_ssh && /usr/local/bin/start-notebook.sh
